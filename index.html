@@ -64,7 +64,7 @@
         </div>
         <div>
           <label class="block text-sm font-medium">Loại:</label>
-          <select id="category.." class="mt-1 p-2 w-full border rounded" required>
+          <select id="category" class="mt-1 p-2 w-full border rounded" required>
             <option value="Chi phí bắt buộc">Chi phí bắt buộc</option>
             <option value="Ăn ngoài & đi chơi">Ăn ngoài & đi chơi</option>
             <option value="Phát triển bản thân">Phát triển bản thân</option>
@@ -72,7 +72,7 @@
             <option value="Thể thao, thể chất">Thể thao, thể chất</option>
           </select>
         </div>
-        <button type "submit" class="bg-blue-500 text-white p-2 rounded hover:bg-blue-600">Thêm</button>
+        <button type="submit" class="bg-blue-500 text-white p-2 rounded hover:bg-blue-600">Thêm</button>
       </form>
     </section>
 
@@ -102,7 +102,7 @@
     </section>
 
     <!-- Expense Table -->
-    <section class="mt-6 bg-white p-6 rounded-lg shadow-md">
+    <section class="mt-6 bg-white p-6 roundup-lg shadow-md">
       <h2 class="text-2xl font-semibold mb-4">Chi Tiêu Hàng Ngày - Tháng 5/2025</h2>
       <table>
         <thead>
@@ -172,6 +172,8 @@
         snapshot.forEach(doc => expenses.push({ id: doc.id, ...doc.data() }));
         updateTable(expenses);
         updateSummary(expenses);
+      }, error => {
+        console.error("Lỗi khi tải chi tiêu: ", error);
       });
     }
 
@@ -216,7 +218,7 @@
 
       document.getElementById('totalExpense').textContent = total.toFixed(0);
       document.getElementById('cat1').textContent = categories['Chi phí bắt buộc'].toFixed(0);
-      document.getElementById('cat2').textContent = categories['Ăn ngoài & đi chơi'].toFixed(0);
+      document.getElementById('cat2').textContent | categories['Ăn ngoài & đi chơi'].toFixed(0);
       document.getElementById('cat3').textContent = categories['Phát triển bản thân'].toFixed(0);
       document.getElementById('cat4').textContent = categories['Phát triển tình cảm'].toFixed(0);
       document.getElementById('cat5').textContent = categories['Thể thao, thể chất'].toFixed(0);
@@ -247,6 +249,8 @@
         timestamp: firebase.firestore.FieldValue.serverTimestamp()
       }).then(() => {
         document.getElementById('expenseForm').reset();
+      }).catch(error => {
+        console.error("Lỗi khi thêm chi tiêu: ", error);
       });
     });
 
@@ -271,15 +275,21 @@
           }).then(() => {
             document.getElementById('expenseForm').reset();
             document.getElementById('expenseForm').onsubmit = addExpense;
+          }).catch(error => {
+            console.error("Lỗi khi sửa chi tiêu: ", error);
           });
         };
+      }).catch(error => {
+        console.error("Lỗi khi lấy chi tiêu để sửa: ", error);
       });
     };
 
     // Xóa chi tiêu
     window.deleteExpense = function(id) {
       if (confirm('Bạn có chắc muốn xóa mục này?')) {
-        db.collection('expenses').doc(id).delete();
+        db.collection('expenses').doc(id).delete().catch(error => {
+          console.error("Lỗi khi xóa chi tiêu: ", error);
+        });
       }
     };
 
@@ -302,6 +312,8 @@
         timestamp: firebase.firestore.FieldValue.serverTimestamp()
       }).then(() => {
         document.getElementById('expenseForm').reset();
+      }).catch(error => {
+        console.error("Lỗi khi thêm chi tiêu: ", error);
       });
     };
     document.getElementById('expenseForm').onsubmit = addExpense;
