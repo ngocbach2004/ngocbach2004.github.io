@@ -187,9 +187,24 @@
 
     // Tải và hiển thị chi tiêu
     function loadExpenses() {
-      db.collection('expenses').orderBy('date').onSnapshot(snapshot => {
+      db.collection('expenses').onSnapshot(snapshot => {
         const expenses = [];
-        snapshot.forEach(doc => expenses.push({ id: doc.id, ...doc.data() }));
+        snapshot.forEach(doc => {
+          const exp = { id: doc.id, ...doc.data() };
+          // Kiểm tra dữ liệu hợp lệ
+          if (!exp.date || !exp.description || exp.amount === undefined || !exp.category) {
+            console.warn("Dữ liệu không hợp lệ, bỏ qua: ", exp);
+            return;
+          }
+          expenses.push(exp);
+        });
+        // Sắp xếp theo date trong JavaScript
+        expenses.sort((a, b) => {
+          const [dayA, monthA] = a.date.split('/').map(Number);
+          const [dayB, monthB] = b.date.split('/').map(Number);
+          return (monthA - monthB) || (dayA - dayB);
+        });
+        console.log("Dữ liệu từ Firestore: ", expenses); // Log để debug
         updateTable(expenses);
         updateSummary(expenses);
       }, error => {
@@ -230,7 +245,7 @@
 
       expenses.forEach(exp => {
         const amount = parseFloat(exp.amount);
-        if (amount > 0) { // Chỉ tính chi tiêu dương
+        if (!isNaN(amount) && amount > 0) { // Kiểm tra amount hợp lệ
           categories[exp.category] += amount;
           total += amount;
         }
@@ -261,6 +276,11 @@
       const amount = parseFloat(document.getElementById('amount').value);
       const category = document.getElementById('category').value;
 
+      if (isNaN(amount)) {
+        console.error("Số tiền không hợp lệ: ", amount);
+        return;
+      }
+
       db.collection('expenses').add({
         date,
         description,
@@ -269,6 +289,7 @@
         timestamp: firebase.firestore.FieldValue.serverTimestamp()
       }).then(() => {
         document.getElementById('expenseForm').reset();
+        console.log("Thêm chi tiêu thành công: ", { date, description, amount, category });
       }).catch(error => {
         console.error("Lỗi khi thêm chi tiêu: ", error);
       });
@@ -285,15 +306,21 @@
 
         document.getElementById('expenseForm').onsubmit = e => {
           e.preventDefault();
+          const updatedAmount = parseFloat(document.getElementById('amount').value);
+          if (isNaN(updatedAmount)) {
+            console.error("Số tiền không hợp lệ khi sửa: ", updatedAmount);
+            return;
+          }
           db.collection('expenses').doc(id).update({
             date: document.getElementById('date').value,
             description: document.getElementById('description').value,
-            amount: parseFloat(document.getElementById('amount').value),
+            amount: updatedAmount,
             category: document.getElementById('category').value,
             timestamp: firebase.firestore.FieldValue.serverTimestamp()
           }).then(() => {
             document.getElementById('expenseForm').reset();
             document.getElementById('expenseForm').onsubmit = addExpense;
+            console.log("Sửa chi tiêu thành công: ", id);
           }).catch(error => {
             console.error("Lỗi khi sửa chi tiêu: ", error);
           });
@@ -306,7 +333,9 @@
     // Xóa chi tiêu
     window.deleteExpense = function(id) {
       if (confirm('Bạn có chắc muốn xóa mục này?')) {
-        db.collection('expenses').doc(id).delete().catch(error => {
+        db.collection('expenses').doc(id).delete().then(() => {
+          console.log("Xóa chi tiêu thành công: ", id);
+        }).catch(error => {
           console.error("Lỗi khi xóa chi tiêu: ", error);
         });
       }
@@ -323,6 +352,11 @@
       const amount = parseFloat(document.getElementById('amount').value);
       const category = document.getElementById('category').value;
 
+      if (isNaN(amount)) {
+        console.error("Số tiền không hợp lệ: ", amount);
+        return;
+      }
+
       db.collection('expenses').add({
         date,
         description,
@@ -331,6 +365,7 @@
         timestamp: firebase.firestore.FieldValue.serverTimestamp()
       }).then(() => {
         document.getElementById('expenseForm').reset();
+        console.log("Thêm chi tiêu thành công: ", { date, description, amount, category });
       }).catch(error => {
         console.error("Lỗi khi thêm chi tiêu: ", error);
       });
