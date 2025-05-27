@@ -251,10 +251,36 @@
       let filteredExpenses = allExpenses;
 
       if (selectedMonth) {
+        console.log("Tháng được chọn:", selectedMonth);
+        console.log("Tất cả dữ liệu:", allExpenses);
+        
         filteredExpenses = allExpenses.filter(exp => {
-          const [day, monthYear] = exp.date.split('/');
-          return monthYear === selectedMonth;
+          console.log("Kiểm tra ngày:", exp.date);
+          
+          // Kiểm tra các format ngày khác nhau
+          let monthYear = '';
+          
+          if (exp.date.includes('/')) {
+            const dateParts = exp.date.split('/');
+            if (dateParts.length === 2) {
+              // Format: dd/mm
+              monthYear = `${dateParts[1].padStart(2, '0')}/2025`;
+            } else if (dateParts.length === 3) {
+              // Format: dd/mm/yyyy
+              monthYear = `${dateParts[1].padStart(2, '0')}/${dateParts[2]}`;
+            }
+          }
+          
+          console.log("Month year extracted:", monthYear);
+          console.log("Comparing with:", selectedMonth);
+          
+          const matches = monthYear === selectedMonth;
+          console.log("Matches:", matches);
+          
+          return matches;
         });
+        
+        console.log("Dữ liệu sau khi lọc:", filteredExpenses);
         updateChartTitle(selectedMonth);
         document.getElementById('expenseTableTitle').textContent = `Chi Tiêu Hàng Ngày - Tháng ${selectedMonth}`;
       } else {
@@ -262,7 +288,6 @@
         document.getElementById('expenseTableTitle').textContent = "Chi Tiêu Hàng Ngày";
       }
 
-      console.log("Dữ liệu sau khi lọc: ", filteredExpenses);
       updateTable(filteredExpenses);
       updateSummary(filteredExpenses);
     }
