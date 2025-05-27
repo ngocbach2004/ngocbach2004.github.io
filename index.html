@@ -37,6 +37,11 @@
       max-width: 400px;
       margin: 20px auto;
     }
+    .no-data {
+      text-align: center;
+      color: #888;
+      padding: 10px;
+    }
   </style>
 </head>
 <body class="bg-gray-100">
@@ -188,9 +193,11 @@
     // Tải và hiển thị chi tiêu
     function loadExpenses() {
       db.collection('expenses').onSnapshot(snapshot => {
+        console.log("Số lượng document trong Firestore: ", snapshot.size); // Log số lượng document
         const expenses = [];
         snapshot.forEach(doc => {
           const exp = { id: doc.id, ...doc.data() };
+          console.log("Document từ Firestore: ", exp); // Log từng document
           // Kiểm tra dữ liệu hợp lệ
           if (!exp.date || !exp.description || exp.amount === undefined || !exp.category) {
             console.warn("Dữ liệu không hợp lệ, bỏ qua: ", exp);
@@ -204,7 +211,7 @@
           const [dayB, monthB] = b.date.split('/').map(Number);
           return (monthA - monthB) || (dayA - dayB);
         });
-        console.log("Dữ liệu từ Firestore: ", expenses); // Log để debug
+        console.log("Dữ liệu sau khi xử lý: ", expenses); // Log dữ liệu cuối cùng
         updateTable(expenses);
         updateSummary(expenses);
       }, error => {
@@ -216,6 +223,10 @@
     function updateTable(expenses) {
       const tableBody = document.getElementById('expenseTable');
       tableBody.innerHTML = '';
+      if (expenses.length === 0) {
+        tableBody.innerHTML = '<tr><td colspan="5" class="no-data">Không có dữ liệu chi tiêu</td></tr>';
+        return;
+      }
       expenses.forEach(exp => {
         const row = document.createElement('tr');
         row.innerHTML = `
@@ -245,7 +256,7 @@
 
       expenses.forEach(exp => {
         const amount = parseFloat(exp.amount);
-        if (!isNaN(amount) && amount > 0) { // Kiểm tra amount hợp lệ
+        if (!isNaN(amount) && amount > 0) {
           categories[exp.category] += amount;
           total += amount;
         }
