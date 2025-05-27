@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Quản Lý Chi Tiêu Cá Nhân</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Chart.js CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <!-- Firebase SDK -->
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js"></script>
+  <style>
+    body {
+      font-family: 'Arial', sans-serif;
+    }
+    .container {
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 20px;
+    }
+    th, td {
+      border: 1px solid #ddd;
+      padding: 8px;
+      text-align: left;
+    }
+    th {
+      background-color: #f2f2f2;
+    }
+    canvas {
+      max-width: 400px;
+      margin: 20px auto;
+    }
+  </style>
+</head>
+<body class="bg-gray-100">
+  <div class="container mx-auto">
+    <!-- Header -->
+    <header class="bg-blue-600 text-white p-4 text-center rounded-lg">
+      <h1 class="text-3xl font-bold">Quản Lý Chi Tiêu Cá Nhân - Tháng 5/2025</h1>
+    </header>
+
+    <!-- Form nhập chi tiêu -->
+    <section class="mt-6 bg-white p-6 rounded-lg shadow-md">
+      <h2 class="text-2xl font-semibold mb-4">Thêm Chi Tiêu Mới</h2>
+      <form id="expenseForm" class="grid grid-cols-1 gap-4">
+        <div>
+          <label class="block text-sm font-medium">Ngày (dd/mm):</label>
+          <input type="text" id="date" class="mt-1 p-2 w-full border rounded" placeholder="VD: 01/05" required>
+        </div>
+        <div>
+          <label class="block text-sm font-medium">Mô tả:</label>
+          <input type="text" id="description" class="mt-1 p-2 w-full border rounded" placeholder="VD: Ăn sáng" required>
+        </div>
+        <div>
+          <label class="block text-sm font-medium">Số tiền (k VND):</label>
+          <input type="number" id="amount" class="mt-1 p-2 w-full border rounded" placeholder="VD: 50" required>
+        </div>
+        <div>
+          <label class="block text-sm font-medium">Loại:</label>
+          <select id="category.." class="mt-1 p-2 w-full border rounded" required>
+            <option value="Chi phí bắt buộc">Chi phí bắt buộc</option>
+            <option value="Ăn ngoài & đi chơi">Ăn ngoài & đi chơi</option>
+            <option value="Phát triển bản thân">Phát triển bản thân</option>
+            <option value="Phát triển tình cảm">Phát triển tình cảm</option>
+            <option value="Thể thao, thể chất">Thể thao, thể chất</option>
+          </select>
+        </div>
+        <button type "submit" class="bg-blue-500 text-white p-2 rounded hover:bg-blue-600">Thêm</button>
+      </form>
+    </section>
+
+    <!-- Summary Section -->
+    <section class="mt-6 bg-white p-6 rounded-lg shadow-md">
+      <h2 class="text-2xl font-semibold mb-4">Tổng Quan Chi Tiêu</h2>
+      <p class="text-lg"><strong>Tổng chi tiêu:</strong> <span id="totalExpense">0</span>k VND</p>
+      <h3 class="text-xl font-medium mt-4">Phân loại chi tiêu:</h3>
+      <ul class="list-disc pl-5" id="categorySummary">
+        <li>Chi phí bắt buộc: <span id="cat1">0</span>k VND</li>
+        <li>Ăn ngoài & đi chơi: <span id="cat2">0</span>k VND</li>
+        <li>Phát triển bản thân: <span id="cat3">0</span>k VND</li>
+        <li>Phát triển tình cảm: <span id="cat4">0</span>k VND</li>
+        <li>Thể thao, thể chất: <span id="cat5">0</span>k VND</li>
+      </ul>
+      <h3 class="text-xl font-medium mt-4">Chi phí theo năm:</h3>
+      <ul class="list-disc pl-5">
+        <li>Sinh nhật bố: 430k VND</li>
+        <li>YouTube Premium: 390k VND</li>
+      </ul>
+    </section>
+
+    <!-- Chart Section -->
+    <section class="mt-6 bg-white p-6 rounded-lg shadow-md">
+      <h2 class="text-2xl font-semibold mb-4">Biểu Đồ Phân Loại Chi Tiêu</h2>
+      <canvas id="expenseChart"></canvas>
+    </section>
+
+    <!-- Expense Table -->
+    <section class="mt-6 bg-white p-6 rounded-lg shadow-md">
+      <h2 class="text-2xl font-semibold mb-4">Chi Tiêu Hàng Ngày - Tháng 5/2025</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>Ngày</th>
+            <th>Mô tả</th>
+            <th>Số Tiền (k VND)</th>
+            <th>Loại</th>
+            <th>Thao tác</th>
+          </tr>
+        </thead>
+        <tbody id="expenseTable"></tbody>
+      </table>
+    </section>
+  </div>
+
+  <!-- Firebase JavaScript -->
+  <script>
+    // Cấu hình Firebase
+    const firebaseConfig = {
+      apiKey: "AIzaSyDARmzgC7Tx8SGlj2Qv_HX7D0r8E0BXE",
+      authDomain: "expense-tracker-932d2.firebaseapp.com",
+      projectId: "expense-tracker-932d2",
+      storageBucket: "expense-tracker-932d2.appspot.com",
+      messagingSenderId: "435106477971",
+      appId: "1:435106477971:web:d269d6412c3b88a2e15a66",
+      measurementId: "G-J3JMD2YLRG"
+    };
+
+    // Khởi tạo Firebase
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.firestore();
+
+    // Khởi tạo biểu đồ
+    const ctx = document.getElementById('expenseChart').getContext('2d');
+    const expenseChart = new Chart(ctx, {
+      type: 'pie',
+      data: {
+        labels: [
+          'Chi phí bắt buộc',
+          'Ăn ngoài & đi chơi',
+          'Phát triển bản thân',
+          'Phát triển tình cảm',
+          'Thể thao, thể chất'
+        ],
+        datasets: [{
+          label: 'Chi Tiêu Tháng 5/2025',
+          data: [0, 0, 0, 0, 0],
+          backgroundColor: ['#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF'],
+          borderColor: '#fff',
+          borderWidth: 1
+        }]
+      },
+      options: {
+        responsive: true,
+        plugins: {
+          legend: { position: 'top' },
+          title: { display: true, text: 'Phân Loại Chi Tiêu Tháng 5/2025' }
+        }
+      }
+    });
+
+    // Tải và hiển thị chi tiêu
+    function loadExpenses() {
+      db.collection('expenses').orderBy('date').onSnapshot(snapshot => {
+        const expenses = [];
+        snapshot.forEach(doc => expenses.push({ id: doc.id, ...doc.data() }));
+        updateTable(expenses);
+        updateSummary(expenses);
+      });
+    }
+
+    // Cập nhật bảng chi tiêu
+    function updateTable(expenses) {
+      const tableBody = document.getElementById('expenseTable');
+      tableBody.innerHTML = '';
+      expenses.forEach(exp => {
+        const row = document.createElement('tr');
+        row.innerHTML = `
+          <td>${exp.date}</td>
+          <td>${exp.description}</td>
+          <td>${exp.amount}</td>
+          <td>${exp.category}</td>
+          <td>
+            <button onclick="editExpense('${exp.id}')" class="bg-yellow-500 text-white p-1 rounded">Sửa</button>
+            <button onclick="deleteExpense('${exp.id}')" class="bg-red-500 text-white p-1 rounded">Xóa</button>
+          </td>
+        `;
+        tableBody.appendChild(row);
+      });
+    }
+
+    // Cập nhật tổng quan và biểu đồ
+    function updateSummary(expenses) {
+      const categories = {
+        'Chi phí bắt buộc': 0,
+        'Ăn ngoài & đi chơi': 0,
+        'Phát triển bản thân': 0,
+        'Phát triển tình cảm': 0,
+        'Thể thao, thể chất': 0
+      };
+      let total = 0;
+
+      expenses.forEach(exp => {
+        const amount = parseFloat(exp.amount);
+        if (amount > 0) { // Chỉ tính chi tiêu dương
+          categories[exp.category] += amount;
+          total += amount;
+        }
+      });
+
+      document.getElementById('totalExpense').textContent = total.toFixed(0);
+      document.getElementById('cat1').textContent = categories['Chi phí bắt buộc'].toFixed(0);
+      document.getElementById('cat2').textContent = categories['Ăn ngoài & đi chơi'].toFixed(0);
+      document.getElementById('cat3').textContent = categories['Phát triển bản thân'].toFixed(0);
+      document.getElementById('cat4').textContent = categories['Phát triển tình cảm'].toFixed(0);
+      document.getElementById('cat5').textContent = categories['Thể thao, thể chất'].toFixed(0);
+
+      expenseChart.data.datasets[0].data = [
+        categories['Chi phí bắt buộc'],
+        categories['Ăn ngoài & đi chơi'],
+        categories['Phát triển bản thân'],
+        categories['Phát triển tình cảm'],
+        categories['Thể thao, thể chất']
+      ];
+      expenseChart.update();
+    }
+
+    // Thêm chi tiêu
+    document.getElementById('expenseForm').addEventListener('submit', e => {
+      e.preventDefault();
+      const date = document.getElementById('date').value;
+      const description = document.getElementById('description').value;
+      const amount = parseFloat(document.getElementById('amount').value);
+      const category = document.getElementById('category').value;
+
+      db.collection('expenses').add({
+        date,
+        description,
+        amount,
+        category,
+        timestamp: firebase.firestore.FieldValue.serverTimestamp()
+      }).then(() => {
+        document.getElementById('expenseForm').reset();
+      });
+    });
+
+    // Sửa chi tiêu
+    window.editExpense = function(id) {
+      db.collection('expenses').doc(id).get().then(doc => {
+        const exp = doc.data();
+        document.getElementById('date').value = exp.date;
+        document.getElementById('description').value = exp.description;
+        document.getElementById('amount').value = exp.amount;
+        document.getElementById('category').value = exp.category;
+
+        // Xóa mục cũ sau khi sửa
+        document.getElementById('expenseForm').onsubmit = e => {
+          e.preventDefault();
+          db.collection('expenses').doc(id).update({
+            date: document.getElementById('date').value,
+            description: document.getElementById('description').value,
+            amount: parseFloat(document.getElementById('amount').value),
+            category: document.getElementById('category').value,
+            timestamp: firebase.firestore.FieldValue.serverTimestamp()
+          }).then(() => {
+            document.getElementById('expenseForm').reset();
+            document.getElementById('expenseForm').onsubmit = addExpense;
+          });
+        };
+      });
+    };
+
+    // Xóa chi tiêu
+    window.deleteExpense = function(id) {
+      if (confirm('Bạn có chắc muốn xóa mục này?')) {
+        db.collection('expenses').doc(id).delete();
+      }
+    };
+
+    // Gọi hàm tải chi tiêu khi trang được tải
+    loadExpenses();
+
+    // Khôi phục hàm thêm chi tiêu mặc định
+    const addExpense = e => {
+      e.preventDefault();
+      const date = document.getElementById('date').value;
+      const description = document.getElementById('description').value;
+      const amount = parseFloat(document.getElementById('amount').value);
+      const category = document.getElementById('category').value;
+
+      db.collection('expenses').add({
+        date,
+        description,
+        amount,
+        category,
+        timestamp: firebase.firestore.FieldValue.serverTimestamp()
+      }).then(() => {
+        document.getElementById('expenseForm').reset();
+      });
+    };
+    document.getElementById('expenseForm').onsubmit = addExpense;
+  </script>
+</body>
+</html>
