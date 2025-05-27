@@ -48,7 +48,7 @@
   <div class="container mx-auto">
     <!-- Header -->
     <header class="bg-blue-600 text-white p-4 text-center rounded-lg">
-      <h1 class="text-3xl font-bold">Quản Lý Chi Tiêu Cá Nhân - Tháng 5/2025</h1>
+      <h1 class="text-3xl font-bold">Quản Lý Chi Tiêu Cá Nhân</h1>
       <p class="text-lg mt-2">Thời gian hiện tại: <span id="currentTime"></span></p>
     </header>
 
@@ -82,6 +82,22 @@
       </form>
     </section>
 
+    <!-- Lọc theo tháng -->
+    <section class="mt-6 bg-white p-6 rounded-lg shadow-md">
+      <h2 class="text-2xl font-semibold mb-4">Xem Thống Kê Theo Tháng</h2>
+      <div class="flex gap-4 items-center">
+        <div>
+          <label class="block text-sm font-medium">Chọn tháng (MM/YYYY):</label>
+          <select id="monthFilter" class="mt-1 p-2 w-full border rounded">
+            <option value="">Tất cả</option>
+            <option value="04/2025">04/2025</option>
+            <option value="05/2025">05/2025</option>
+          </select>
+        </div>
+        <button onclick="filterByMonth()" class="bg-green-500 text-white p-2 rounded hover:bg-green-600 mt-6">Xem thống kê</button>
+      </div>
+    </section>
+
     <!-- Summary Section -->
     <section class="mt-6 bg-white p-6 rounded-lg shadow-md">
       <h2 class="text-2xl font-semibold mb-4">Tổng Quan Chi Tiêu</h2>
@@ -109,7 +125,7 @@
 
     <!-- Expense Table -->
     <section class="mt-6 bg-white p-6 rounded-lg shadow-md">
-      <h2 class="text-2xl font-semibold mb-4">Chi Tiêu Hàng Ngày - Tháng 5/2025</h2>
+      <h2 class="text-2xl font-semibold mb-4" id="expenseTableTitle">Chi Tiêu Hàng Ngày</h2>
       <table>
         <thead>
           <tr>
@@ -174,7 +190,7 @@
           'Thể thao, thể chất'
         ],
         datasets: [{
-          label: 'Chi Tiêu Tháng 5/2025',
+          label: 'Chi Tiêu',
           data: [0, 0, 0, 0, 0],
           backgroundColor: ['#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF'],
           borderColor: '#fff',
@@ -185,38 +201,70 @@
         responsive: true,
         plugins: {
           legend: { position: 'top' },
-          title: { display: true, text: 'Phân Loại Chi Tiêu Tháng 5/2025' }
+          title: { display: true, text: 'Phân Loại Chi Tiêu' }
         }
       }
     });
 
+    // Biến lưu trữ tất cả chi tiêu
+    let allExpenses = [];
+
     // Tải và hiển thị chi tiêu
     function loadExpenses() {
       db.collection('expenses').onSnapshot(snapshot => {
-        console.log("Số lượng document trong Firestore: ", snapshot.size); // Log số lượng document
-        const expenses = [];
+        console.log("Số lượng document trong Firestore: ", snapshot.size);
+        allExpenses = [];
         snapshot.forEach(doc => {
           const exp = { id: doc.id, ...doc.data() };
-          console.log("Document từ Firestore: ", exp); // Log từng document
-          // Kiểm tra dữ liệu hợp lệ
+          console.log("Document từ Firestore: ", exp);
           if (!exp.date || !exp.description || exp.amount === undefined || !exp.category) {
             console.warn("Dữ liệu không hợp lệ, bỏ qua: ", exp);
             return;
           }
-          expenses.push(exp);
+          allExpenses.push(exp);
         });
         // Sắp xếp theo date trong JavaScript
-        expenses.sort((a, b) => {
+        allExpenses.sort((a, b) => {
           const [dayA, monthA] = a.date.split('/').map(Number);
           const [dayB, monthB] = b.date.split('/').map(Number);
           return (monthA - monthB) || (dayA - dayB);
         });
-        console.log("Dữ liệu sau khi xử lý: ", expenses); // Log dữ liệu cuối cùng
-        updateTable(expenses);
-        updateSummary(expenses);
+        console.log("Dữ liệu sau khi xử lý: ", allExpenses);
+        // Hiển thị tất cả dữ liệu ban đầu
+        updateTable(allExpenses);
+        updateSummary(allExpenses);
+        updateChartTitle("");
       }, error => {
         console.error("Lỗi khi tải chi tiêu: ", error);
       });
+    }
+
+    // Lọc chi tiêu theo tháng
+    function filterByMonth() {
+      const selectedMonth = document.getElementById('monthFilter').value;
+      let filteredExpenses = allExpenses;
+
+      if (selectedMonth) {
+        filteredExpenses = allExpenses.filter(exp => {
+          const [day, monthYear] = exp.date.split('/');
+          return monthYear === selectedMonth;
+        });
+        updateChartTitle(selectedMonth);
+        document.getElementById('expenseTableTitle').textContent = `Chi Tiêu Hàng Ngày - Tháng ${selectedMonth}`;
+      } else {
+        updateChartTitle("");
+        document.getElementById('expenseTableTitle').textContent = "Chi Tiêu Hàng Ngày";
+      }
+
+      console.log("Dữ liệu sau khi lọc: ", filteredExpenses);
+      updateTable(filteredExpenses);
+      updateSummary(filteredExpenses);
+    }
+
+    // Cập nhật tiêu đề biểu đồ
+    function updateChartTitle(month) {
+      expenseChart.options.plugins.title.text = month ? `Phân Loại Chi Tiêu - Tháng ${month}` : 'Phân Loại Chi Tiêu';
+      expenseChart.update();
     }
 
     // Cập nhật bảng chi tiêu
