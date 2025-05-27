@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Thống Kê Chi Tiết - Quản Lý Chi Tiêu</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    .chart-container {
+      position: relative;
+      height: 400px;
+      margin: 20px 0;
+    }
+    .stats-card {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+    }
+  </style>
+</head>
+<body class="bg-gray-100">
+  <div class="container mx-auto max-w-6xl p-6">
+    <!-- Header -->
+    <header class="bg-purple-600 text-white p-6 rounded-lg mb-6">
+      <div class="flex justify-between items-center">
+        <div>
+          <h1 class="text-3xl font-bold">📊 Thống Kê Chi Tiêu Chi Tiết</h1>
+          <p class="text-purple-200 mt-2">Phân tích chi tiêu của bạn một cách chi tiết</p>
+        </div>
+        <button onclick="window.close()" class="bg-purple-500 hover:bg-purple-400 px-4 py-2 rounded">
+          ← Quay lại
+        </button>
+      </div>
+    </header>
+
+    <!-- Tổng quan nhanh -->
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+      <div class="stats-card p-6 rounded-lg text-center">
+        <h3 class="text-lg font-semibold">Tổng Chi Tiêu</h3>
+        <p class="text-3xl font-bold mt-2" id="totalAmount">0k</p>
+      </div>
+      <div class="bg-green-500 text-white p-6 rounded-lg text-center">
+        <h3 class="text-lg font-semibold">Số Giao Dịch</h3>
+        <p class="text-3xl font-bold mt-2" id="totalTransactions">0</p>
+      </div>
+      <div class="bg-blue-500 text-white p-6 rounded-lg text-center">
+        <h3 class="text-lg font-semibold">Chi Tiêu TB/Ngày</h3>
+        <p class="text-3xl font-bold mt-2" id="avgPerDay">0k</p>
+      </div>
+      <div class="bg-red-500 text-white p-6 rounded-lg text-center">
+        <h3 class="text-lg font-semibold">Loại Chi Nhiều Nhất</h3>
+        <p class="text-lg font-bold mt-2" id="topCategory">-</p>
+      </div>
+    </div>
+
+    <!-- Biểu đồ -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <!-- Biểu đồ tròn -->
+      <div class="bg-white p-6 rounded-lg shadow-md">
+        <h2 class="text-xl font-semibold mb-4">Phân Bố Theo Loại</h2>
+        <div class="chart-container">
+          <canvas id="pieChart"></canvas>
+        </div>
+      </div>
+
+      <!-- Biểu đồ cột -->
+      <div class="bg-white p-6 rounded-lg shadow-md">
+        <h2 class="text-xl font-semibold mb-4">Chi Tiêu Theo Loại</h2>
+        <div class="chart-container">
+          <canvas id="barChart"></canvas>
+        </div>
+      </div>
+
+      <!-- Biểu đồ đường theo thời gian -->
+      <div class="bg-white p-6 rounded-lg shadow-md lg:col-span-2">
+        <h2 class="text-xl font-semibold mb-4">Xu Hướng Chi Tiêu Theo Thời Gian</h2>
+        <div class="chart-container">
+          <canvas id="lineChart"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <!-- Bảng thống kê chi tiết -->
+    <div class="bg-white p-6 rounded-lg shadow-md mt-6">
+      <h2 class="text-xl font-semibold mb-4">Thống Kê Chi Tiết Theo Loại</h2>
+      <div class="overflow-x-auto">
+        <table class="w-full border-collapse">
+          <thead>
+            <tr class="bg-gray-100">
+              <th class="border p-3 text-left">Loại Chi Tiêu</th>
+              <th class="border p-3 text-right">Tổng Tiền (k VND)</th>
+              <th class="border p-3 text-right">Số Giao Dịch</th>
+              <th class="border p-3 text-right">Trung Bình (k VND)</th>
+              <th class="border p-3 text-right">% Tổng</th>
+            </tr>
+          </thead>
+          <tbody id="detailTable"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let expenseData = [];
+    
+    // Tải dữ liệu từ localStorage
+    function loadData() {
+      const data = localStorage.getItem('expenseData');
+      if (data) {
+        expenseData = JSON.parse(data);
+        console.log('Dữ liệu được tải:', expenseData);
+        initializeCharts();
+        updateStats();
+      } else {
+        alert('Không có dữ liệu chi tiêu!');
+        window.close();
+      }
+    }
+
+    // Cập nhật thống kê tổng quan
+    function updateStats() {
+      const total = expenseData.reduce((sum, exp) => sum + parseFloat(exp.amount), 0);
+      const totalTransactions = expenseData.length;
+      
+      // Tính số ngày duy nhất
+      const uniqueDays = new Set(expenseData.map(exp => exp.date)).size;
+      const avgPerDay = uniqueDays > 0 ? total / uniqueDays : 0;
+      
+      // Tìm loại chi tiêu nhiều nhất
+      const categoryTotals = {};
+      expenseData.forEach(exp => {
+        categoryTotals[exp.category] = (categoryTotals[exp.category] || 0) + parseFloat(exp.amount);
+      });
+      const topCategory = Object.keys(categoryTotals).reduce((a, b) => 
+        categoryTotals[a] > categoryTotals[b] ? a : b, '');
+
+      document.getElementById('totalAmount').textContent = total.toFixed(0) + 'k';
+      document.getElementById('totalTransactions').textContent = totalTransactions;
+      document.getElementById('avgPerDay').textContent = avgPerDay.toFixed(0) + 'k';
+      document.getElementById('topCategory').textContent = topCategory;
+
+      updateDetailTable(categoryTotals, total);
+    }
+
+    // Cập nhật bảng chi tiết
+    function updateDetailTable(categoryTotals, total) {
+      const tableBody = document.getElementById('detailTable');
+      tableBody.innerHTML = '';
+
+      Object.keys(categoryTotals).forEach(category => {
+        const amount = categoryTotals[category];
+        const transactions = expenseData.filter(exp => exp.category === category).length;
+        const avg = amount / transactions;
+        const percentage = (amount / total * 100).toFixed(1);
+
+        const row = `
+          <tr class="hover:bg-gray-50">
+            <td class="border p-3">${category}</td>
+            <td class="border p-3 text-right font-semibold">${amount.toFixed(0)}</td>
+            <td class="border p-3 text-right">${transactions}</td>
+            <td class="border p-3 text-right">${avg.toFixed(0)}</td>
+            <td class="border p-3 text-right">${percentage}%</td>
+          </tr>
+        `;
+        tableBody.innerHTML += row;
+      });
+    }
+
+    // Khởi tạo các biểu đồ
+    function initializeCharts() {
+      const categories = {
+        'Chi phí bắt buộc': 0,
+        'Ăn ngoài & đi chơi': 0,
+        'Phát triển bản thân': 0,
+        'Phát triển tình cảm': 0,
+        'Thể thao, thể chất': 0
+      };
+
+      expenseData.forEach(exp => {
+        categories[exp.category] += parseFloat(exp.amount);
+      });
+
+      const labels = Object.keys(categories);
+      const data = Object.values(categories);
+      const colors = ['#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF'];
+
+      // Biểu đồ tròn
+      new Chart(document.getElementById('pieChart'), {
+        type: 'doughnut',
+        data: {
+          labels: labels,
+          datasets: [{
+            data: data,
+            backgroundColor: colors,
+            borderWidth: 2
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { position: 'bottom' }
+          }
+        }
+      });
+
+      // Biểu đồ cột
+      new Chart(document.getElementById('barChart'), {
+        type: 'bar',
+        data: {
+          labels: labels,
+          datasets: [{
+            label: 'Chi tiêu (k VND)',
+            data: data,
+            backgroundColor: colors,
+            borderWidth: 1
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          scales: {
+            y: { beginAtZero: true }
+          }
+        }
+      });
+
+      // Biểu đồ đường theo thời gian
+      createTimelineChart();
+    }
+
+    // Tạo biểu đồ xu hướng theo thời gian
+    function createTimelineChart() {
+      const dailyTotals = {};
+      
+      expenseData.forEach(exp => {
+        if (!dailyTotals[exp.date]) {
+          dailyTotals[exp.date] = 0;
+        }
+        dailyTotals[exp.date] += parseFloat(exp.amount);
+      });
+
+      const sortedDates = Object.keys(dailyTotals).sort((a, b) => {
+        const [dayA, monthA] = a.split('/').map(Number);
+        const [dayB, monthB] = b.split('/').map(Number);
+        return (monthA - monthB) || (dayA - dayB);
+      });
+
+      const timelineData = sortedDates.map(date => dailyTotals[date]);
+
+      new Chart(document.getElementById('lineChart'), {
+        type: 'line',
+        data: {
+          labels: sortedDates,
+          datasets: [{
+            label: 'Chi tiêu hàng ngày (k VND)',
+            data: timelineData,
+            borderColor: '#8B5CF6',
+            backgroundColor: 'rgba(139, 92, 246, 0.1)',
+            tension: 0.4,
+            fill: true
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          scales: {
+            y: { beginAtZero: true }
+          },
+          plugins: {
+            legend: { display: true }
+          }
+        }
+      });
+    }
+
+    // Tải dữ liệu khi trang được load
+    window.onload = loadData;
+  </script>
+</body>
+</html>
